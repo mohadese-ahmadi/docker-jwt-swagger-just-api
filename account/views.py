@@ -1,13 +1,14 @@
+from django.contrib.auth.hashers import check_password
+from django.core.mail import send_mail
+from django.utils.crypto import get_random_string
+
 from rest_framework import generics, permissions, viewsets, views, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import check_password
-from django.core.mail import send_mail
-from django.utils.crypto import get_random_string
+
 from .models import Author
 from .permissions import IsSuperUserOrReadOnly
-
 from .serializers import (
     RegisterSerializer,
     ChangePasswordSerializer,
@@ -27,8 +28,6 @@ class RegisterView(generics.CreateAPIView):
 
 
 # ورود: از SimpleJWT -> TokenObtainPairView استفاده می‌کنیم
-
-
 # خروج: در JWT فقط با بلاک لیست انجام میشه، یا سمت کلاینت توکن پاک شه.
 
 
@@ -115,9 +114,11 @@ class LogoutView(views.APIView):
             refresh_token = request.data["refresh"]
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+            return Response({"message": "Successfully logged out"},
+                             status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
-            return Response({"error": "Invalid token or already blacklisted"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid token or already blacklisted"},
+                             status=status.HTTP_400_BAD_REQUEST)
 
     
 class AuthorViewSet(viewsets.ModelViewSet):

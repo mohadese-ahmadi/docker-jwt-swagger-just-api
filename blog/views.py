@@ -1,6 +1,8 @@
 from django.shortcuts import render
+
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+
 from .serializers import BlogSerializer
 from .models import Blogs
 from .permissions import IsAuthorOrReadOnly

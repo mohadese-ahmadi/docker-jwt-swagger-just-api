@@ -1,6 +1,8 @@
 from django.db import models
+
 from account.models import Author
 from blog.models import Blogs
+
 
 class Comment(models.Model):
     post = models.ForeignKey(

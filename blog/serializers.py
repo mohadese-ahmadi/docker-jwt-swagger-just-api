@@ -18,7 +18,7 @@ class BlogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Title cannot be blank.")
         return value
 
-    def validate_content(self, value):
+    def validate_context(self, value):
         if len(value.strip()) < 10:
             raise serializers.ValidationError("Content is too short.")
         return value
