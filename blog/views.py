@@ -1,5 +1,6 @@
 from django.shortcuts import render
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
@@ -8,6 +9,7 @@ from .models import Blogs
 from .permissions import IsAuthorOrReadOnly
 
 
+@extend_schema(tags=['Blog'])
 class BlogViewSets(viewsets.ModelViewSet):
     queryset = Blogs.objects.all().order_by("created_at")
     serializer_class = BlogSerializer

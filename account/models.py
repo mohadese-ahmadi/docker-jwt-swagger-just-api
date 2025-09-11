@@ -9,5 +9,5 @@ class Author(AbstractUser):
         ("male", "MALE"),
         ("female", "FEMALE"),
     ]
-
+    email = models.EmailField(unique=True)
     sex = models.CharField(choices=SEX_CHOICES, max_length=8)

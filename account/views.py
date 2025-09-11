@@ -2,6 +2,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, viewsets, views, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -21,6 +22,7 @@ from .serializers import (
 reset_tokens = {}
 
 
+@extend_schema(tags=['register'])
 class RegisterView(generics.CreateAPIView):
     queryset = Author.objects.all()
     permission_classes = (permissions.AllowAny,)
@@ -31,6 +33,7 @@ class RegisterView(generics.CreateAPIView):
 # خروج: در JWT فقط با بلاک لیست انجام میشه، یا سمت کلاینت توکن پاک شه.
 
 
+@extend_schema(tags=['changing password'])
 class ChangePasswordView(generics.UpdateAPIView):
     serializer_class = ChangePasswordSerializer
     model = Author
@@ -53,6 +56,7 @@ class ChangePasswordView(generics.UpdateAPIView):
         return Response(serializer.errors, status=400)
 
 
+@extend_schema(tags=['retrieving password'])
 class ResetPasswordRequestView(generics.GenericAPIView):
     serializer_class = ResetPasswordRequestSerializer
     permission_classes = [permissions.AllowAny]
@@ -71,41 +75,38 @@ class ResetPasswordRequestView(generics.GenericAPIView):
         reset_tokens[email] = token
 
         send_mail(
-            "Password Reset",
-            f"Use this token to reset your password: {token}",
-            "no-reply@example.com",
-            [email],
+            subject="Password Reset",
+            message=f"Use this token to reset your password: {token}",
+            from_email=None,  # Uses DEFAULT_FROM_EMAIL if set
+            recipient_list=[email],
+            fail_silently=False,
         )
 
         return Response({"status": "Reset email sent."})
 
 
+@extend_schema(tags=['retrieving password'])
 class ResetPasswordConfirmView(generics.GenericAPIView):
     serializer_class = ResetPasswordConfirmSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        token = request.data.get("token")
+        user = request.user
         email = request.data.get("email")
 
-        if reset_tokens.get(email) != token:
-            return Response({"error": "Invalid token"}, status=400)
+        if user.email != email:
+            return Response({"error": "Email mismatch"}, status=400)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            user = Author.objects.get(email=email)
-        except Author.DoesNotExist:
-            return Response({"error": "User not found"}, status=404)
-
         user.set_password(serializer.validated_data["new_password"])
         user.save()
-        reset_tokens.pop(email)
 
         return Response({"status": "Password reset successful"})
 
 
+@extend_schema(tags=['logout'])
 class LogoutView(views.APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -120,7 +121,8 @@ class LogoutView(views.APIView):
             return Response({"error": "Invalid token or already blacklisted"},
                              status=status.HTTP_400_BAD_REQUEST)
 
-    
+
+@extend_schema(tags=['users '])
 class AuthorViewSet(viewsets.ModelViewSet):
     queryset = Author.objects.all()
     serializer_class = AuthorSerializer

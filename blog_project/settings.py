@@ -26,7 +26,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, 'blog_project/.env'))
 
 SECRET_KEY = env('SECRET_KEY')
 
-DEBUG = env.bool('DEBUG', default=True)
+DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 SITE_URL = env('SITE_URL', default='http://localhost:8080')
@@ -119,6 +119,9 @@ AUTH_PASSWORD_VALIDATORS = [
         'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
