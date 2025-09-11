@@ -1,10 +1,11 @@
 from rest_framework import permissions
 
 
-class IsAuthorOrReadOnly(permissions.BasePermission):
-    """اجازه فقط برای نویسنده در متدهای ویرایش/حذف."""
+class IsAuthorOrSuperOrReadOnly(permissions.BasePermission):
+    """اجازه فقط برای نویسنده و سوپر یوزر در متدهای ویرایش/حذف."""
 
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return obj.author == request.user
+        return (obj.user == request.user
+                or request.user.is_superuser)

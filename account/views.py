@@ -122,6 +122,11 @@ class LogoutView(views.APIView):
                              status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(tags=['login'])
+class CustomTokenObtainPairView(TokenObtainPairView):
+    pass
+
+
 @extend_schema(tags=['users '])
 class AuthorViewSet(viewsets.ModelViewSet):
     queryset = Author.objects.all()

@@ -6,13 +6,13 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from .models import Comment
 from .serializers import CommentSerializer
-from .permissions import IsAuthorOrReadOnly
+from .permissions import IsAuthorOrSuperOrReadOnly
 
 @extend_schema(tags=['Comments'])
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrSuperOrReadOnly]
 
     def get_queryset(self):
         return Comment.objects.filter(post_id=self.kwargs['post_pk'])
