@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    env_file: ./DANAPROJ/.env
+    env_file: ./blog_project/.env
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -9,10 +9,10 @@ services:
 
   web:
     build: .
-    command: sh -c "python manage.py migrate && gunicorn --reload DANAPROJ.wsgi:application --bind 0.0.0.0:8002"
+    command: sh -c "python manage.py migrate && gunicorn --reload blog_project.wsgi:application --bind 0.0.0.0:8002"
     volumes:
       - .:/app
-    env_file: ./DANAPROJ/.env
+    env_file: ./blog_project/.env
     depends_on:
       - db
     ports:
