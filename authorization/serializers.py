@@ -1,32 +1,25 @@
-from datetime import datetime
+from random import randint
+from django.utils import timezone
 
 from django.contrib.auth.password_validation import validate_password
-
+from django.utils import timezone
 from rest_framework import serializers
 
 from account.models import Author
-from .views import reset_tokens 
+from .tokens_storage import reset_tokens
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True,
-        validators=[validate_password]
-    )
+    password = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
 
     class Meta:
         model = Author
-        fields = (
-            'username', 'email', 'sex',
-            'password', 'password2'
-        )
+        fields = ('username', 'email', 'sex', 'password', 'password2')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({
-                'password': 'Passwords do not match.'
-            })
+            raise serializers.ValidationError({"password": "Passwords do not match."})
         return attrs
 
     def create(self, validated_data):
@@ -45,24 +38,27 @@ class ResetPasswordRequestSerializer(serializers.Serializer):
 
 
 class ResetPasswordConfirmSerializer(serializers.Serializer):
-    email = serializers.EmailField()
     token = serializers.CharField()
     new_password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        email = attrs.get('email')
         token_input = attrs.get('token')
-        token_data = reset_tokens.get(email)
-        if not token_data:
-            raise serializers.ValidationError({"token": "No reset request found for this email."})
 
-        if datetime.utcnow() > token_data["expires"]:
+        email = None
+        for k, v in reset_tokens.items():
+            if str(v["token"]) == str(token_input):
+                email = k
+                break
+
+        if not email:
+            raise serializers.ValidationError({"token": "Invalid or unknown token."})
+
+        token_data = reset_tokens[email]
+        if timezone.now() > token_data["expires"]:
             reset_tokens.pop(email, None)
             raise serializers.ValidationError({"token": "Token expired."})
 
-        if str(token_data["token"]) != str(token_input):
-            raise serializers.ValidationError({"token": "Invalid token."})
-
+        attrs["email"] = email
         return attrs
 
     def save(self, **kwargs):
@@ -73,5 +69,3 @@ class ResetPasswordConfirmSerializer(serializers.Serializer):
         user.save()
         reset_tokens.pop(email, None)
         return user
-
-
