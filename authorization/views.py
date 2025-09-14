@@ -1,15 +1,15 @@
 from django.contrib.auth.hashers import check_password
 from django.core.mail import send_mail
-from django.utils.crypto import get_random_string
+from random import randint
 
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, permissions, viewsets, views, status
+from rest_framework import permissions, viewsets, status
 from rest_framework.response import Response
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from account.models import Author
-from .permissions import IsSuperUserOrReadOnly
 from .serializers import (
     RegisterSerializer,
     ChangePasswordSerializer,
@@ -17,50 +17,69 @@ from .serializers import (
     ResetPasswordConfirmSerializer
 )
 
-
 reset_tokens = {}
 
-
-@extend_schema(tags=['register'])
-class RegisterView(generics.CreateAPIView):
+# ------------------- USER VIEWSET -------------------
+class UserViewSet(viewsets.GenericViewSet):
     queryset = Author.objects.all()
-    permission_classes = (permissions.AllowAny,)
-    serializer_class = RegisterSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'register':
+            from .serializers import RegisterSerializer
+            return RegisterSerializer
+        elif self.action == 'change_password':
+            from .serializers import ChangePasswordSerializer
+            return ChangePasswordSerializer
+        elif self.action == 'reset_password_request':
+            from .serializers import ResetPasswordRequestSerializer
+            return ResetPasswordRequestSerializer
+        elif self.action == 'reset_password_confirm':
+            from .serializers import ResetPasswordConfirmSerializer
+            return ResetPasswordConfirmSerializer
+        return None
+
+    # ---------------- REGISTER ----------------
+    @extend_schema(tags=['register'])
+    @action(detail=False, methods=['post'],
+             permission_classes=[permissions.AllowAny])
+    def register(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()  # فقط ثبت نام
+
+        # تولید توکن بعد از ثبت نام
+        refresh = RefreshToken.for_user(user)
+        access = str(refresh.access_token)
+        refresh = str(refresh)
+
+        return Response({
+            "user": serializer.data,
+            "refresh": refresh,
+            "access": access,
+        }, status=status.HTTP_201_CREATED)
 
 
-# ورود: از SimpleJWT -> TokenObtainPairView استفاده می‌کنیم
-# خروج: در JWT فقط با بلاک لیست انجام میشه، یا سمت کلاینت توکن پاک شه.
+    # ---------------- CHANGE PASSWORD ----------------
+    @extend_schema(tags=['changing password'])
+    @action(detail=False, methods=['post'])
+    def change_password(self, request):
+        user = request.user
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
+        if not check_password(serializer.validated_data["old_password"], user.password):
+            return Response({"old_password": "Wrong password."}, status=400)
 
-@extend_schema(tags=['changing password'])
-class ChangePasswordView(generics.UpdateAPIView):
-    serializer_class = ChangePasswordSerializer
-    model = Author
-    permission_classes = (permissions.IsAuthenticated,)
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+        return Response({"status": "Password updated successfully"})
 
-    def get_object(self, queryset=None):
-        return self.request.user
-
-    def update(self, request, *args, **kwargs):
-        user = self.get_object()
-        serializer = self.get_serializer(data=request.data)
-
-        if serializer.is_valid():
-            if not check_password(serializer.data.get("old_password"), user.password):
-                return Response({"old_password": "Wrong password."}, status=400)
-
-            user.set_password(serializer.data.get("new_password"))
-            user.save()
-            return Response({"status": "Password updated successfully"})
-        return Response(serializer.errors, status=400)
-
-
-@extend_schema(tags=['retrieving password'])
-class ResetPasswordRequestView(generics.GenericAPIView):
-    serializer_class = ResetPasswordRequestSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request, *args, **kwargs):
+    # ---------------- RESET PASSWORD REQUEST ----------------
+    @extend_schema(tags=['retrieving password'])
+    @action(detail=False, methods=['post'], 
+            permission_classes=[permissions.AllowAny])
+    def reset_password_request(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"]
@@ -70,57 +89,57 @@ class ResetPasswordRequestView(generics.GenericAPIView):
         except Author.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
 
-        token = get_random_string(32)
-        reset_tokens[email] = token
+        token = randint(100000, 999999)
+        reset_tokens[email] = {"token": token, "expires": datetime.utcnow() + timedelta(minutes=10)}
 
         send_mail(
             subject="Password Reset",
-            message=f"Use this token to reset your password: {token}",
-            from_email=None,  # Uses DEFAULT_FROM_EMAIL if set
+            message=f"Your reset token is: {token}",
+            from_email=None,
             recipient_list=[email],
             fail_silently=False,
         )
 
-        return Response({"status": "Reset email sent."})
-
-
-@extend_schema(tags=['retrieving password'])
-class ResetPasswordConfirmView(generics.GenericAPIView):
-    serializer_class = ResetPasswordConfirmSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
+        return Response({"status": "Reset email sent. Token valid for 10 minutes."})
+    # ---------------- RESET PASSWORD CONFIRM ----------------
+    @extend_schema(tags=['retrieving password'])
+    @action(detail=False, methods=['post'])
+    def reset_password_confirm(self, request):
         user = request.user
         email = request.data.get("email")
 
         if user.email != email:
             return Response({"error": "Email mismatch"}, status=400)
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = ResetPasswordConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # Optionally, you can check reset token here:
+        token = request.data.get("token")
+        if str(reset_tokens.get(email)) != str(token):
+            return Response({"error": "Invalid token"}, status=400)
 
         user.set_password(serializer.validated_data["new_password"])
         user.save()
+        reset_tokens.pop(email, None)
 
         return Response({"status": "Password reset successful"})
 
-
-@extend_schema(tags=['logout'])
-class LogoutView(views.APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def post(self, request):
+    # ---------------- LOGOUT ----------------
+    @extend_schema(tags=['logout'])
+    @action(detail=False, methods=['post'])
+    def logout(self, request):
         try:
             refresh_token = request.data["refresh"]
             token = RefreshToken(refresh_token)
             token.blacklist()
             return Response({"message": "Successfully logged out"},
-                             status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
+                            status=status.HTTP_205_RESET_CONTENT)
+        except Exception:
             return Response({"error": "Invalid token or already blacklisted"},
-                             status=status.HTTP_400_BAD_REQUEST)
+                            status=status.HTTP_400_BAD_REQUEST)
 
-
+# ---------------- CUSTOM LOGIN ----------------
 @extend_schema(tags=['login'])
 class CustomTokenObtainPairView(TokenObtainPairView):
     pass

@@ -1,7 +1,11 @@
+from datetime import datetime
+
 from django.contrib.auth.password_validation import validate_password
+
 from rest_framework import serializers
 
 from account.models import Author
+from .views import reset_tokens 
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -44,12 +48,30 @@ class ResetPasswordConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField()
     token = serializers.CharField()
     new_password = serializers.CharField(write_only=True)
-    confirm_password = serializers.CharField(write_only=True)
 
-    def validate(self, data):
-        if data["new_password"] != data["confirm_password"]:
-            raise serializers.ValidationError(
-                "Passwords do not match"
-                )
-        return data
+    def validate(self, attrs):
+        email = attrs.get('email')
+        token_input = attrs.get('token')
+        token_data = reset_tokens.get(email)
+        if not token_data:
+            raise serializers.ValidationError({"token": "No reset request found for this email."})
+
+        if datetime.utcnow() > token_data["expires"]:
+            reset_tokens.pop(email, None)
+            raise serializers.ValidationError({"token": "Token expired."})
+
+        if str(token_data["token"]) != str(token_input):
+            raise serializers.ValidationError({"token": "Invalid token."})
+
+        return attrs
+
+    def save(self, **kwargs):
+        email = self.validated_data["email"]
+        new_password = self.validated_data["new_password"]
+        user = Author.objects.get(email=email)
+        user.set_password(new_password)
+        user.save()
+        reset_tokens.pop(email, None)
+        return user
+
 
