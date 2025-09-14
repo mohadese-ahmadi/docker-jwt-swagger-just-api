@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'comment',
     'menu_item',
     'tag',
+    'authorization'
 ]
 
 MIDDLEWARE = [
