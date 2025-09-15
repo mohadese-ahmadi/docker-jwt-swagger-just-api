@@ -1,20 +1,26 @@
 services:
   db:
     image: postgres:16-alpine
-    env_file: ./blog_project/.env
+    env_file: blog_project/.env
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "bloguser", "-d", "blogdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   web:
     build: .
     command: sh -c "python manage.py migrate && gunicorn --reload blog_project.wsgi:application --bind 0.0.0.0:8002"
     volumes:
       - .:/app
-    env_file: ./blog_project/.env
+    env_file: blog_project/.env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8002:8002"
 
