@@ -9,7 +9,7 @@ from rest_framework import permissions, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from account.models import Author
 from .serializers import (
@@ -34,6 +34,8 @@ class UserViewSet(viewsets.GenericViewSet):
             return ResetPasswordRequestSerializer
         elif self.action == 'reset_password_confirm':
             return ResetPasswordConfirmSerializer
+        elif self.action == 'login':
+            return TokenObtainPairSerializer
         return None
 
     # ---------------- REGISTER ----------------
@@ -126,8 +128,11 @@ class UserViewSet(viewsets.GenericViewSet):
             return Response({"error": "Invalid token or already blacklisted"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-
-# ---------------- CUSTOM LOGIN ----------------
-@extend_schema(tags=['login'])
-class CustomTokenObtainPairView(TokenObtainPairView):
-    pass
+    # ---------------- LOGIN ----------------
+    @extend_schema(tags=['login'])
+    @action(detail=False, methods=['post'],
+             permission_classes=[permissions.AllowAny])
+    def login(self, request):
+        serializer = TokenObtainPairSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=200)
