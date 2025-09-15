@@ -3,9 +3,7 @@ from rest_framework import viewsets
 
 from .models import Author
 from .permissions import IsSuperUserOrReadOnly
-from .serializers import (
-    AuthorSerializer
-)
+from .serializers import AuthorSerializer
 
 
 @extend_schema(tags=['users '])
