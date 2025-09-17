@@ -14,7 +14,7 @@ services:
 
   web:
     build: .
-    command: sh -c "python manage.py migrate && gunicorn --reload blog_project.wsgi:application --bind 0.0.0.0:8002"
+    command: sh -c "python manage.py migrate && gunicorn --reload blog_project.wsgi:application --bind 0.0.0.0:8200"
     volumes:
       - .:/app
     env_file: blog_project/.env
@@ -22,7 +22,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8002:8002"
+      - "8200:8200"
 
 volumes:
   pgdata:

@@ -1,9 +1,15 @@
-from random import randint
-from django.utils import timezone
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
+from random import randint
+
+from django.utils import timezone
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
+from django.conf import settings
+
 from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from account.models import Author
 from .tokens_storage import reset_tokens
@@ -63,3 +69,38 @@ class ResetPasswordConfirmSerializer(serializers.Serializer):
         user.save()
         reset_tokens.pop(email, None)
         return user
+    
+class GoogleAuthSerializer(serializers.Serializer):
+    id_token=serializers.CharField(write_only=True)
+    access=serializers.CharField(read_only=True)
+    refresh=serializers.CharField(read_only=True)
+    email=serializers.EmailField(read_only=True)
+
+    def validate_id_token(self, value):
+        try:
+            info=id_token.verify_oauth2_token(
+                value,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID
+            )
+            return info
+        except Exception as e:
+            raise serializers.ValidationError(f'Invalid Google Token: {e}')
+    
+    def create(self, validated_data):
+        info=validated_data["id_token"]
+        email=info['email']
+        name=info.get('name', '')
+
+        user, created=Author.objects.get_or_create(email=email)
+        if created:
+            user.username=email.split('@')[0]
+            user.first_name=name
+            user.save()
+
+        refresh=RefreshToken.for_user(user)
+        return{
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'email': email
+        }

@@ -13,6 +13,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from account.models import Author
 from .serializers import (
+    GoogleAuthSerializer,
     RegisterSerializer,
     ChangePasswordSerializer,
     ResetPasswordRequestSerializer,
@@ -136,3 +137,14 @@ class UserViewSet(viewsets.GenericViewSet):
         serializer = TokenObtainPairSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=200)
+
+
+@extend_schema(tags=['login with google'])
+class GoogleAuthViewSet(viewsets.GenericViewSet):
+    serializer_class = GoogleAuthSerializer
+    permission_classes = [permissions.AllowAny]
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tokens = serializer.save()
+        return Response(tokens, status=status.HTTP_200_OK)

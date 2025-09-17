@@ -32,6 +32,7 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 SITE_URL = env('SITE_URL', default='http://localhost:8080')
 
 # Application definition
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID")
 
 INSTALLED_APPS = [
     # Django apps
@@ -41,11 +42,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 
     # Third-party apps
     'rest_framework',
     'drf_spectacular',
     'django_render_partial',
+    'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 
     # Local apps
