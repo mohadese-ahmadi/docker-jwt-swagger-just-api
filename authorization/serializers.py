@@ -38,27 +38,25 @@ class ResetPasswordRequestSerializer(serializers.Serializer):
 
 
 class ResetPasswordConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
     token = serializers.CharField()
     new_password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
+        email_input = attrs.get('email')
         token_input = attrs.get('token')
 
-        email = None
-        for k, v in reset_tokens.items():
-            if str(v["token"]) == str(token_input):
-                email = k
-                break
+        if email_input not in reset_tokens:
+            raise serializers.ValidationError({"email": "No reset request found for this email."})
 
-        if not email:
-            raise serializers.ValidationError({"token": "Invalid or unknown token."})
+        token_data = reset_tokens[email_input]
 
-        token_data = reset_tokens[email]
+        if str(token_data["token"]) != str(token_input):
+            raise serializers.ValidationError({"token": "Invalid token for this email."})
+
         if timezone.now() > token_data["expires"]:
-            reset_tokens.pop(email, None)
+            reset_tokens.pop(email_input, None)
             raise serializers.ValidationError({"token": "Token expired."})
-
-        attrs["email"] = email
         return attrs
 
     def save(self, **kwargs):
