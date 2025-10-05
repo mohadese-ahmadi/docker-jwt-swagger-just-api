@@ -9,6 +9,6 @@ class AuthorSerializer(serializers.ModelSerializer):
         model = Author
         fields = [
             'id', 'username', 'email', 'first_name',
-            'last_name', 'sex', 'is_superuser'
+            'last_name', 'sex', 'is_superuser', 'is_staff'
         ]
         read_only_fields = ['id', 'is_superuser']
