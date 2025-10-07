@@ -20,7 +20,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Author
-        fields = ('username', 'email', 'sex', 'password', 'is_superuser')
+        fields = ('username', 'email', 'sex', 'password', 'is_superuser', 'is_staff')
 
 
     def create(self, validated_data):
