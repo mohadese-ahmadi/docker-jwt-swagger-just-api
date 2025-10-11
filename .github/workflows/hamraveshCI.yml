@@ -1,0 +1,45 @@
+name: Django CI/CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  building-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Dockerhub Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{secrets.Docker_Username}}
+          password: ${{secrets.Docker_Password_Token}}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker.setup-buildx-actions@v3
+
+      - name: Build and Push 
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{secrets.Docker_Username}}/hamravesh:v1
+    
+  deploy-on-hamravesh:
+    needs: building-docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: deploy with API
+        run: |
+          curl -X PUT 'https://api.console.hamravesh.ir/api/v1/darkube/apps/update_from_cli/' \
+          -H 'Content-Type: application/json' \
+          -d '{
+          "trigger_deploy_token": "${{secrets.DEPLOY_TOKEN_HAMRAVESH_MAHMADIKARGOZARI1600_HAMRAVESH_C13}}",
+          "app_id": "${{secrets.APP_ID_HAMRAVESH_MAHMADIKARGOZARI1600_HAMRAVESH_C13}}", 
+          "image_tag": "v1"
+          }'
+  
+  
